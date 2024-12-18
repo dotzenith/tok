@@ -1,0 +1,15 @@
+[package]
+name = "tok"
+version = "0.0.1"
+edition = "2021"
+description = "A CLI client for tick tick"
+homepage = "https://github.com/dotzenith/tok"
+repository = "https://github.com/dotzenith/tok"
+license = "MIT"
+
+[dependencies]
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"
