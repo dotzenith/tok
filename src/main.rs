@@ -1,3 +1,7 @@
+mod client;
+
 fn main() {
-    println!("A CLI client for tick tick ");
+    let new_client = client::TickTickClient::new().unwrap();
+    let projects = new_client.get_projects().unwrap();
+    println!("projects: {:?}", projects);
 }
