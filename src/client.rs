@@ -6,6 +6,11 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 
+use bincode::{deserialize_from, serialize_into};
+use platform_dirs::AppDirs;
+use std::fs::{create_dir, OpenOptions};
+use std::io::{BufReader, BufWriter};
+
 use open;
 use std::env;
 use std::sync::mpsc;
@@ -22,7 +27,7 @@ Knowing when the token expires is also more useful
 than knowing how long until it expires
 */
 #[derive(Serialize, Deserialize, Debug, Clone)]
-struct AccessToken {
+pub struct AccessToken {
     pub access_token: String,
     #[serde(with = "chrono::serde::ts_seconds")]
     pub expires_on: DateTime<Utc>,
@@ -38,16 +43,10 @@ Everything related to auth and managing the token
 */
 impl TickTickClient {
     pub fn new() -> Result<Self> {
-        let client_id = env::var("TICKTICK_CLIENT_ID").context("Did not find ticktick client id")?;
-        let client_secret = env::var("TICKTICK_CLIENT_SECRET").context("Did not find ticktick client secret")?;
-        let redirect_url = env::var("TICKTICK_REDIRECT_URL").context("Did not find tictick redirect url")?;
-        let auth_url = format!("{BASE_AUTH_URL}/authorize?scope={SCOPE}&client_id={client_id}&state=state&redirect_uri={redirect_url}&response_type=code");
-
-        open::that(&auth_url)?;
-
-        let auth_code = Self::listen_for_redirect(8000)?;
-
-        let access_token = Self::exchange_code_for_token(&client_id, &client_secret, &auth_code, &redirect_url)?;
+        let access_token = match Self::read_access_token() {
+            Ok(token) => token,
+            Err(_) => Self::get_access_token_from_user()?,
+        };
 
         let mut headers = HeaderMap::new();
         let mut auth_header = HeaderValue::from_str(format!("Bearer {}", access_token.access_token).as_str())
@@ -57,6 +56,58 @@ impl TickTickClient {
         let http_client = Client::builder().default_headers(headers).build()?;
 
         Ok(Self { http_client })
+    }
+
+    fn get_access_token_from_user() -> Result<AccessToken> {
+        let client_id = env::var("TICKTICK_CLIENT_ID").context("Did not find ticktick client id")?;
+        let client_secret = env::var("TICKTICK_CLIENT_SECRET").context("Did not find ticktick client secret")?;
+        let redirect_url = env::var("TICKTICK_REDIRECT_URL").context("Did not find tictick redirect url")?;
+        let auth_url = format!("{BASE_AUTH_URL}/authorize?scope={SCOPE}&client_id={client_id}&state=state&redirect_uri={redirect_url}&response_type=code");
+
+        open::that(&auth_url)?;
+
+        let auth_code = Self::listen_for_redirect(8000)?;
+        let access_token = Self::exchange_code_for_token(&client_id, &client_secret, &auth_code, &redirect_url)?;
+
+        let _ = Self::save_access_token(&access_token);
+
+        Ok(access_token)
+    }
+
+    pub fn save_access_token(token: &AccessToken) -> Result<()> {
+        let app_dirs = AppDirs::new(Some("tok"), true).context("Unable to get cache directory")?;
+        if !app_dirs.cache_dir.exists() {
+            create_dir(&app_dirs.cache_dir).context("Unable to create cache directory")?;
+        }
+
+        let mut file = BufWriter::new(
+            OpenOptions::new()
+                .write(true)
+                .create(true)
+                .truncate(true)
+                .open(app_dirs.cache_dir.join("tok"))
+                .context("Unable to create cache file")?,
+        );
+
+        serialize_into(&mut file, token).context("Unable to save token to file")?;
+        Ok(())
+    }
+
+    pub fn read_access_token() -> Result<AccessToken> {
+        let app_dirs = AppDirs::new(Some("tok"), true).context("Unable to get cache directory")?;
+        let mut file = BufReader::new(
+            OpenOptions::new()
+                .read(true)
+                .open(app_dirs.cache_dir.join("tok"))
+                .context("tok cache does not exist")?,
+        );
+
+        let token: AccessToken = deserialize_from(&mut file).context("Unable to read IP from file")?;
+
+        if Utc::now() > token.expires_on {
+            return Err(anyhow!("Token expired"))
+        }
+        Ok(token)
     }
 
     fn listen_for_redirect(port: u16) -> Result<String> {
