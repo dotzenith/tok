@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Context, Result};
+use chrono::{DateTime, Duration, Utc};
 use reqwest::blocking::Client;
 use reqwest::header::{self, HeaderMap, HeaderValue};
 use serde::{Deserialize, Serialize};
@@ -12,19 +13,22 @@ use std::thread;
 use tiny_http::{Response, Server};
 
 const BASE_AUTH_URL: &'static str = "https://ticktick.com/oauth";
+const BASE_API_URL: &'static str = "https://api.ticktick.com";
 const SCOPE: &'static str = "tasks:write tasks:read";
 
-const BASE_API_URL: &'static str = "https://api.ticktick.com";
-
+/*
+We don't need/want all the info given by the API.
+Knowing when the token expires is also more useful
+than knowing how long until it expires
+*/
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct AccessToken {
+struct AccessToken {
     pub access_token: String,
-    pub token_type: String,
-    pub expires_in: u32,
-    pub scope: String,
+    #[serde(with = "chrono::serde::ts_seconds")]
+    pub expires_on: DateTime<Utc>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TickTickClient {
     http_client: Client,
 }
@@ -96,12 +100,10 @@ impl TickTickClient {
         });
 
         let params = rx.recv().context("Failed to receive data from the redirect")?;
-        Ok(
-            params
-                .get("code")
-                .ok_or(anyhow!("No code in the redirect"))?
-                .to_string(),
-        )
+        Ok(params
+            .get("code")
+            .ok_or(anyhow!("No code in the redirect"))?
+            .to_string())
     }
 
     fn exchange_code_for_token(
@@ -129,9 +131,22 @@ impl TickTickClient {
             ));
         }
 
-        let access_token: AccessToken = response.json()?;
+        let result: Value = response.json()?;
+        let access_token = result["access_token"]
+            .as_str()
+            .ok_or(anyhow!("Access token not found in api response"))?
+            .to_string();
 
-        Ok(access_token)
+        let expires_in = result["expires_in"]
+            .as_i64()
+            .ok_or(anyhow!("Token lifetime not found in api response"))?;
+
+        let expires_on = Utc::now() + Duration::seconds(expires_in);
+
+        Ok(AccessToken {
+            access_token,
+            expires_on,
+        })
     }
 }
 
