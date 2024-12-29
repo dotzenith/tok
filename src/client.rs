@@ -201,14 +201,116 @@ impl TickTickClient {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Project {
+    pub id: String,
+    pub name: String,
+    pub color: String,
+    #[serde(rename = "sortOrder")]
+    pub sort_order: i64,
+    pub closed: Option<bool>,
+    #[serde(rename = "groupId")]
+    pub group_id: Option<String>,
+    #[serde(rename = "viewMode")]
+    pub view_mode: Option<String>,
+    pub permission: Option<String>,
+    pub kind: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ChecklistItem {
+    pub id: String,
+    pub title: String,
+    pub status: i32,
+    #[serde(rename = "completedTime")]
+    pub completed_time: Option<DateTime<Utc>>,
+    #[serde(rename = "isAllDay")]
+    pub is_all_day: bool,
+    #[serde(rename = "sortOrder")]
+    pub sort_order: i64,
+    #[serde(rename = "startDate")]
+    pub start_date: DateTime<Utc>,
+    #[serde(rename = "timeZone")]
+    pub time_zone: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub enum TaskStatus {
+    #[serde(rename = "0")]
+    Normal,
+    #[serde(rename = "2")]
+    Completed,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Task {
+    pub id: String,
+    #[serde(rename = "projectId")]
+    pub project_id: String,
+    pub title: String,
+    #[serde(rename = "isAllDay")]
+    pub is_all_day: bool,
+    #[serde(rename = "completedTime")]
+    pub completed_time: Option<DateTime<Utc>>,
+    pub content: String,
+    pub desc: String,
+    #[serde(rename = "dueDate")]
+    pub due_date: Option<DateTime<Utc>>,
+    pub items: Vec<ChecklistItem>,
+    pub priority: i32,
+    pub reminders: Vec<String>,
+    #[serde(rename = "repeatFlag")]
+    pub repeat_flag: String,
+    #[serde(rename = "sortOrder")]
+    pub sort_order: i64,
+    #[serde(rename = "startDate")]
+    pub start_date: DateTime<Utc>,
+    pub status: TaskStatus,
+    #[serde(rename = "timeZone")]
+    pub time_zone: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Column {
+    pub id: String,
+    #[serde(rename = "projectId")]
+    pub project_id: String,
+    pub name: String,
+    #[serde(rename = "sortOrder")]
+    pub sort_order: i64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ProjectData {
+    pub project: Project,
+    pub tasks: Vec<Task>,
+    pub columns: Vec<Column>
+}
+
 // API requests
 impl TickTickClient {
-    pub fn get_projects(&self) -> Result<Value> {
-        let request: Value = self
+    pub fn get_projects(&self) -> Result<Vec<Project>> {
+        let result: Vec<Project> = self
             .http_client
             .get(format!("{BASE_API_URL}/open/v1/project"))
             .send()?
             .json()?;
-        Ok(request)
+        Ok(result)
+    }
+
+    pub fn get_projects_with_data(&self) -> Result<Vec<ProjectData>> {
+        let projects = self.get_projects()?;
+        let mut project_data: Vec<ProjectData> = vec![];
+
+        for project in projects.iter() {
+            let result: ProjectData = self
+                .http_client
+                .get(format!("{BASE_API_URL}/open/v1/project/{}/data", project.id))
+                .send()?
+                .json()?;
+            project_data.push(result);
+        }
+        Ok(project_data)
     }
 }
