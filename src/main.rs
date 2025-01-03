@@ -1,4 +1,5 @@
 mod client;
+mod data;
 
 fn main() {
     let new_client = client::TickTickClient::new().unwrap();
