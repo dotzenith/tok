@@ -1,10 +1,15 @@
 mod client;
 mod data;
 
+use kolorz::HexKolorize;
+
 fn main() {
-    let new_client = client::TickTickClient::new().unwrap();
-    let projects = new_client.get_projects_with_data().unwrap();
+    let tick = client::TickTickClient::new().unwrap();
+    let projects = tick.get_projects_with_data().unwrap();
+
     for project in projects.iter() {
-        println!("{:?}\n", project);
+        if !project.tasks.is_empty() {
+            println!("{:<16}{:<20}Task", "Project", "Due Date");
+        }
     }
 }

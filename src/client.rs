@@ -6,22 +6,21 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 
-use crate::data::{Project, ProjectData};
+use crate::data::{Project, ProjectData, Task};
 
 use bincode::{deserialize_from, serialize_into};
 use platform_dirs::AppDirs;
 use std::fs::{create_dir, OpenOptions};
 use std::io::{BufReader, BufWriter};
 
-use open;
 use std::env;
 use std::sync::mpsc;
 use std::thread;
 use tiny_http::{Response, Server};
 
-const BASE_AUTH_URL: &'static str = "https://ticktick.com/oauth";
-const BASE_API_URL: &'static str = "https://api.ticktick.com";
-const SCOPE: &'static str = "tasks:write tasks:read";
+const BASE_AUTH_URL: &str = "https://ticktick.com/oauth";
+const BASE_API_URL: &str = "https://api.ticktick.com";
+const SCOPE: &str = "tasks:write tasks:read";
 
 /*
 We don't need/want all the info given by the API.
@@ -124,7 +123,7 @@ impl TickTickClient {
         let server_clone = server.clone();
 
         thread::spawn(move || {
-            for request in server_clone.incoming_requests() {
+            if let Some(request) = server_clone.incoming_requests().next() {
                 let url = request.url().to_string();
 
                 let params: HashMap<String, String> =
@@ -134,12 +133,9 @@ impl TickTickClient {
                         .split('&')
                         .fold(HashMap::new(), |mut dict, param| {
                             let mut parts = param.split('=');
-                            match (parts.next(), parts.next()) {
-                                (Some(key), Some(value)) => {
-                                    dict.insert(key.to_string(), value.to_string());
-                                    ()
-                                }
-                                _ => (),
+
+                            if let (Some(key), Some(value)) = (parts.next(), parts.next()) {
+                                dict.insert(key.to_string(), value.to_string());
                             };
                             dict
                         });
@@ -148,7 +144,6 @@ impl TickTickClient {
                 let _ = request.respond(response);
 
                 let _ = tx.send(params);
-                break;
             }
         });
 
@@ -227,5 +222,27 @@ impl TickTickClient {
             project_data.push(result);
         }
         Ok(project_data)
+    }
+
+    pub fn complete_task(&self, task: &Task) -> Result<()> {
+        let _ = self
+            .http_client
+            .post(format!(
+                "{BASE_API_URL}/open/v1/project/{}/task/{}/complete",
+                task.project_id, task.id
+            ))
+            .send()?;
+        Ok(())
+    }
+
+    pub fn delete_task(&self, task: &Task) -> Result<()> {
+        let _ = self
+            .http_client
+            .delete(format!(
+                "{BASE_API_URL}/open/v1/project/{}/task/{}",
+                task.project_id, task.id
+            ))
+            .send()?;
+        Ok(())
     }
 }

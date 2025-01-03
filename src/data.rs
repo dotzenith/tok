@@ -9,7 +9,7 @@ where
     Option::<String>::deserialize(deserializer)?
         .map(|strtime| {
             let dt = DateTime::strptime("%Y-%m-%dT%H:%M:%S%.3f%z", strtime).map_err(serde::de::Error::custom)?;
-            Ok(dt.to_zoned(TimeZone::system()).map_err(serde::de::Error::custom)?)
+            dt.to_zoned(TimeZone::system()).map_err(serde::de::Error::custom)
         })
         .transpose()
 }
