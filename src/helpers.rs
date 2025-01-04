@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Context, Result};
 use jiff::{Span, Unit, Zoned};
 use rand::Rng;
-use std::fmt::Write as fmtWrite;
+use std::fmt::Write as FmtWrite;
 use std::io::{self, Write};
 
 use crate::data::{ProjectData, Task};
@@ -13,6 +13,7 @@ pub struct TaggedTask<'a> {
     pub task: &'a Task,
 }
 
+#[derive(Clone, Copy)]
 pub enum TimeFrame {
     Today,
     Tomorrow,
@@ -26,18 +27,18 @@ impl TimeFrame {
             Self::Today => {
                 // The Today section in TickTick includes past due
                 today.day_of_year() >= due.day_of_year() && today.year() == due.year()
-            },
+            }
             Self::Tomorrow => {
                 let tomorrow = today.tomorrow().expect("Tomorrow doesn't exist?");
                 tomorrow.day_of_year() == due.day_of_year() && tomorrow.year() == due.year()
-            },
+            }
             Self::Week => {
                 let span: Span = due - today;
                 let days = span
                     .total(Unit::Day)
                     .expect("Could not get total days between now and due date");
                 days < 7.0
-            },
+            }
             Self::All => true,
         }
     }
@@ -67,33 +68,30 @@ pub fn print_task(num: usize, tagged_task: &TaggedTask, now: &Zoned) {
     }
 }
 
-pub fn filter(projects: &[ProjectData], frame: TimeFrame) -> Vec<TaggedTask<'_>> {
+pub fn filter<'a>(projects: &'a [ProjectData], frame: TimeFrame, project: Option<&str>) -> Vec<TaggedTask<'a>> {
     let today = Zoned::now();
-    let mut result: Vec<TaggedTask> = vec![];
-    for project in projects.iter() {
-        for task in project.tasks.iter() {
-            if let Some(date) = &task.due_date {
-                if frame.inside(&today, date) {
-                    let tagged_task = TaggedTask {
-                        project_name: &project.project.name,
-                        color: project.project.color.as_deref(),
-                        task,
+
+    projects
+        .iter()
+        .filter(|proj| project.map_or(true, |p| proj.project.name == p))
+        .flat_map(|proj| {
+            let value = today.clone();
+            proj.tasks.iter().filter_map({
+                move |task| {
+                    let should_include = match &task.due_date {
+                        Some(date) => frame.inside(&value, date),
+                        None => matches!(frame, TimeFrame::All),
                     };
-                    result.push(tagged_task);
-                }
-            } else {
-                if let TimeFrame::All = frame {
-                    let tagged_task = TaggedTask {
-                        project_name: &project.project.name,
-                        color: project.project.color.as_deref(),
+
+                    should_include.then(|| TaggedTask {
+                        project_name: &proj.project.name,
+                        color: proj.project.color.as_deref(),
                         task,
-                    };
-                    result.push(tagged_task);
+                    })
                 }
-            }
-        }
-    }
-    result
+            })
+        })
+        .collect()
 }
 
 pub fn get_number(max: usize) -> Result<usize> {

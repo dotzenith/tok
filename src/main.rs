@@ -2,7 +2,7 @@ mod client;
 mod data;
 mod helpers;
 
-use clap::{command, Command};
+use clap::{arg, command, value_parser, Command};
 use jiff::Zoned;
 use std::process::exit;
 
@@ -40,6 +40,13 @@ fn main() {
                 .subcommand(Command::new("tomorrow").about("To-Do items due tomorrow"))
                 .subcommand(Command::new("week").about("To-Do items due this week"))
                 .subcommand(Command::new("all").about("All To-Do items"))
+                .arg(
+                    arg!(--project <NAME>)
+                        .help("Project name to filter by")
+                        .value_parser(value_parser!(String))
+                        .global(true)
+                        .require_equals(false),
+                )
                 .subcommand_required(true),
         )
         .subcommand(
@@ -49,6 +56,13 @@ fn main() {
                 .subcommand(Command::new("tomorrow").about("To-Do items due tomorrow"))
                 .subcommand(Command::new("week").about("To-Do items due this week"))
                 .subcommand(Command::new("all").about("All To-Do items"))
+                .arg(
+                    arg!(--project <NAME>)
+                        .help("Project name to filter by")
+                        .value_parser(value_parser!(String))
+                        .global(true)
+                        .require_equals(false),
+                )
                 .subcommand_required(true),
         )
         .subcommand(
@@ -58,6 +72,13 @@ fn main() {
                 .subcommand(Command::new("tomorrow").about("To-Do items due tomorrow"))
                 .subcommand(Command::new("week").about("To-Do items due this week"))
                 .subcommand(Command::new("all").about("All To-Do items"))
+                .arg(
+                    arg!(--project <NAME>)
+                        .help("Project name to filter by")
+                        .value_parser(value_parser!(String))
+                        .global(true)
+                        .require_equals(false),
+                )
                 .subcommand_required(true),
         )
         .get_matches();
@@ -68,25 +89,29 @@ fn main() {
     match matches.subcommand() {
         Some(("show", show_matches)) => match show_matches.subcommand() {
             Some(("today", _)) => {
-                let tagged_tasks = filter(&projects, TimeFrame::Today);
+                let project = show_matches.get_one::<String>("project");
+                let tagged_tasks = filter(&projects, TimeFrame::Today, project.map(|x| x.as_str()));
                 for (num, task) in tagged_tasks.iter().enumerate() {
                     print_task(num, task, &now);
                 }
             }
             Some(("tomorrow", _)) => {
-                let tagged_tasks = filter(&projects, TimeFrame::Tomorrow);
+                let project = show_matches.get_one::<String>("project");
+                let tagged_tasks = filter(&projects, TimeFrame::Tomorrow, project.map(|x| x.as_str()));
                 for (num, task) in tagged_tasks.iter().enumerate() {
                     print_task(num, task, &now);
                 }
             }
             Some(("week", _)) => {
-                let tagged_tasks = filter(&projects, TimeFrame::Week);
+                let project = show_matches.get_one::<String>("project");
+                let tagged_tasks = filter(&projects, TimeFrame::Week, project.map(|x| x.as_str()));
                 for (num, task) in tagged_tasks.iter().enumerate() {
                     print_task(num, task, &now);
                 }
             }
             Some(("all", _)) => {
-                let tagged_tasks = filter(&projects, TimeFrame::All);
+                let project = show_matches.get_one::<String>("project");
+                let tagged_tasks = filter(&projects, TimeFrame::All, project.map(|x| x.as_str()));
                 for (num, task) in tagged_tasks.iter().enumerate() {
                     print_task(num, task, &now);
                 }
@@ -95,31 +120,95 @@ fn main() {
         },
         Some(("complete", show_matches)) => match show_matches.subcommand() {
             Some(("today", _)) => {
-                show_and_finish_task(&projects, TimeFrame::Today, TaskAction::Complete, &tick, &now);
+                let project = show_matches.get_one::<String>("project");
+                show_and_finish_task(
+                    &projects,
+                    project.map(|x| x.as_str()),
+                    TimeFrame::Today,
+                    TaskAction::Complete,
+                    &tick,
+                    &now,
+                );
             }
             Some(("tomorrow", _)) => {
-                show_and_finish_task(&projects, TimeFrame::Tomorrow, TaskAction::Complete, &tick, &now);
+                let project = show_matches.get_one::<String>("project");
+                show_and_finish_task(
+                    &projects,
+                    project.map(|x| x.as_str()),
+                    TimeFrame::Tomorrow,
+                    TaskAction::Complete,
+                    &tick,
+                    &now,
+                );
             }
             Some(("week", _)) => {
-                show_and_finish_task(&projects, TimeFrame::Week, TaskAction::Complete, &tick, &now);
+                let project = show_matches.get_one::<String>("project");
+                show_and_finish_task(
+                    &projects,
+                    project.map(|x| x.as_str()),
+                    TimeFrame::Week,
+                    TaskAction::Complete,
+                    &tick,
+                    &now,
+                );
             }
             Some(("all", _)) => {
-                show_and_finish_task(&projects, TimeFrame::All, TaskAction::Complete, &tick, &now);
+                let project = show_matches.get_one::<String>("project");
+                show_and_finish_task(
+                    &projects,
+                    project.map(|x| x.as_str()),
+                    TimeFrame::All,
+                    TaskAction::Complete,
+                    &tick,
+                    &now,
+                );
             }
             _ => unreachable!(),
         },
         Some(("delete", show_matches)) => match show_matches.subcommand() {
             Some(("today", _)) => {
-                show_and_finish_task(&projects, TimeFrame::Today, TaskAction::Delete, &tick, &now);
+                let project = show_matches.get_one::<String>("project");
+                show_and_finish_task(
+                    &projects,
+                    project.map(|x| x.as_str()),
+                    TimeFrame::Today,
+                    TaskAction::Delete,
+                    &tick,
+                    &now,
+                );
             }
             Some(("tomorrow", _)) => {
-                show_and_finish_task(&projects, TimeFrame::Tomorrow, TaskAction::Delete, &tick, &now);
+                let project = show_matches.get_one::<String>("project");
+                show_and_finish_task(
+                    &projects,
+                    project.map(|x| x.as_str()),
+                    TimeFrame::Tomorrow,
+                    TaskAction::Delete,
+                    &tick,
+                    &now,
+                );
             }
             Some(("week", _)) => {
-                show_and_finish_task(&projects, TimeFrame::Week, TaskAction::Delete, &tick, &now);
+                let project = show_matches.get_one::<String>("project");
+                show_and_finish_task(
+                    &projects,
+                    project.map(|x| x.as_str()),
+                    TimeFrame::Week,
+                    TaskAction::Delete,
+                    &tick,
+                    &now,
+                );
             }
             Some(("all", _)) => {
-                show_and_finish_task(&projects, TimeFrame::All, TaskAction::Delete, &tick, &now);
+                let project = show_matches.get_one::<String>("project");
+                show_and_finish_task(
+                    &projects,
+                    project.map(|x| x.as_str()),
+                    TimeFrame::All,
+                    TaskAction::Delete,
+                    &tick,
+                    &now,
+                );
             }
             _ => unreachable!(),
         },
@@ -127,6 +216,7 @@ fn main() {
     }
 }
 
+#[derive(Clone, Copy)]
 enum TaskAction {
     Complete,
     Delete,
@@ -134,18 +224,18 @@ enum TaskAction {
 
 fn show_and_finish_task(
     projects: &[ProjectData],
+    project_filter: Option<&str>,
     timeframe: TimeFrame,
     task_action: TaskAction,
     client: &TickTickClient,
     now: &Zoned,
 ) {
-    let tagged_tasks = filter(projects, timeframe);
+    let tagged_tasks = filter(projects, timeframe, project_filter);
     let num_tasks = tagged_tasks.len();
     for (num, task) in tagged_tasks.iter().enumerate() {
         print_task(num, task, now);
     }
 
-    // Nothing to do if no tasks were printed
     if num_tasks < 1 {
         return;
     }
