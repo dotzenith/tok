@@ -1,4 +1,8 @@
+use anyhow::{anyhow, Context, Result};
 use jiff::{Span, Unit, Zoned};
+use rand::Rng;
+use std::fmt::Write as fmtWrite;
+use std::io::{self, Write};
 
 use crate::data::{ProjectData, Task};
 use kolorz::HexKolorize;
@@ -35,8 +39,8 @@ pub fn print_task(num: usize, tagged_task: &TaggedTask) {
     match tagged_task.color {
         Some(col) => {
             println!(
-                "{} {:<16} {} [{}]",
-                format!("({:02})", num + 1),
+                "({:02}) {:<16} {} [{}]",
+                num + 1,
                 tagged_task
                     .task
                     .due_date
@@ -50,8 +54,8 @@ pub fn print_task(num: usize, tagged_task: &TaggedTask) {
         }
         None => {
             println!(
-                "{} {:<16} {} [{}]",
-                format!("({:02})", num + 1),
+                "({:02}) {:<16} {} [{}]",
+                num + 1,
                 tagged_task
                     .task
                     .due_date
@@ -84,4 +88,35 @@ pub fn filter(projects: &[ProjectData], frame: TimeFrame) -> Vec<TaggedTask<'_>>
         }
     }
     result
+}
+
+pub fn get_number(max: usize) -> Result<usize> {
+    /*
+    I really am just asking for off-by-one errors here
+    but zero indexing looks funny so I'd rather not do
+    that instead
+    */
+    print!("Please enter a task number: ");
+    io::stdout()
+        .flush()
+        .context("Could not flush stdout while asking for user input")?;
+    let mut input = String::new();
+
+    io::stdin().read_line(&mut input).context("Could not get user input")?;
+
+    let num: i64 = input.trim().parse().context("Task number wasn't a number")?;
+
+    if num < 1 || num > max as i64 {
+        Err(anyhow!("Invalid task number"))
+    } else {
+        Ok((num - 1) as usize)
+    }
+}
+
+pub fn generate_state_token() -> String {
+    let mut rng = rand::thread_rng();
+    (0..32).fold(String::new(), |mut output, _| {
+        let _ = write!(output, "{:02x}", rng.gen::<u8>());
+        output
+    })
 }

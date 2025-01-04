@@ -1,6 +1,5 @@
 use anyhow::{anyhow, Context, Result};
 use jiff::{Timestamp, ToSpan};
-use rand::Rng;
 use reqwest::blocking::Client;
 use reqwest::header::{self, HeaderMap, HeaderValue};
 use serde::{Deserialize, Serialize};
@@ -8,6 +7,7 @@ use serde_json::Value;
 use std::collections::HashMap;
 
 use crate::data::{Project, ProjectData, Task};
+use crate::helpers::generate_state_token;
 
 use bincode::{deserialize_from, serialize_into};
 use platform_dirs::AppDirs;
@@ -73,8 +73,7 @@ impl TickTickClient {
         is going to be rolling their own credentials, this is not going to be a
         long running service
         */
-        let mut rng = rand::thread_rng();
-        let state: String = (0..32).map(|_| format!("{:02x}", rng.gen::<u8>())).collect();
+        let state = generate_state_token();
         let client_id = env::var("TICKTICK_CLIENT_ID").context("Did not find ticktick client id")?;
         let client_secret = env::var("TICKTICK_CLIENT_SECRET").context("Did not find ticktick client secret")?;
         let redirect_url = env::var("TICKTICK_REDIRECT_URL").context("Did not find tictick redirect url")?;
