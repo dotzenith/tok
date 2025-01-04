@@ -22,14 +22,22 @@ pub enum TimeFrame {
 
 impl TimeFrame {
     pub fn inside(&self, today: &Zoned, due: &Zoned) -> bool {
-        let span: Span = due - today;
-        let days = span
-            .total(Unit::Day)
-            .expect("Could not get total days between now and due date");
         match self {
-            Self::Today => days < 1.0,
-            Self::Tomorrow => days > 1.0 && days < 2.0,
-            Self::Week => days < 7.0,
+            Self::Today => {
+                // The Today section in TickTick includes past due
+                today.day_of_year() >= due.day_of_year() && today.year() == due.year()
+            },
+            Self::Tomorrow => {
+                let tomorrow = today.tomorrow().expect("Tomorrow doesn't exist?");
+                tomorrow.day_of_year() == due.day_of_year() && tomorrow.year() == due.year()
+            },
+            Self::Week => {
+                let span: Span = due - today;
+                let days = span
+                    .total(Unit::Day)
+                    .expect("Could not get total days between now and due date");
+                days < 7.0
+            },
             Self::All => true,
         }
     }
