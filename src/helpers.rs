@@ -35,19 +35,14 @@ impl TimeFrame {
     }
 }
 
-pub fn print_task(num: usize, tagged_task: &TaggedTask) {
+pub fn print_task(num: usize, tagged_task: &TaggedTask, now: &Zoned) {
+    let time = tagged_task.task.due_date.as_ref().unwrap_or(now);
     match tagged_task.color {
         Some(col) => {
             println!(
                 "({:02}) {:<16} {} [{}]",
                 num + 1,
-                tagged_task
-                    .task
-                    .due_date
-                    .as_ref()
-                    .expect("No due date")
-                    .strftime("[%m/%d %I:%M %p]")
-                    .to_string(),
+                time.strftime("[%m/%d %I:%M %p]").to_string(),
                 tagged_task.task.title,
                 tagged_task.project_name.kolorize(col)
             );
@@ -56,13 +51,7 @@ pub fn print_task(num: usize, tagged_task: &TaggedTask) {
             println!(
                 "({:02}) {:<16} {} [{}]",
                 num + 1,
-                tagged_task
-                    .task
-                    .due_date
-                    .as_ref()
-                    .expect("No due date")
-                    .strftime("[%m/%d %I:%M %p]")
-                    .to_string(),
+                time.strftime("[%m/%d %I:%M %p]").to_string(),
                 tagged_task.task.title,
                 tagged_task.project_name
             );
@@ -77,6 +66,15 @@ pub fn filter(projects: &[ProjectData], frame: TimeFrame) -> Vec<TaggedTask<'_>>
         for task in project.tasks.iter() {
             if let Some(date) = &task.due_date {
                 if frame.inside(&today, date) {
+                    let tagged_task = TaggedTask {
+                        project_name: &project.project.name,
+                        color: project.project.color.as_deref(),
+                        task,
+                    };
+                    result.push(tagged_task);
+                }
+            } else {
+                if let TimeFrame::All = frame {
                     let tagged_task = TaggedTask {
                         project_name: &project.project.name,
                         color: project.project.color.as_deref(),

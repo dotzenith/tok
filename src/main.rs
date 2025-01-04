@@ -3,6 +3,7 @@ mod data;
 mod helpers;
 
 use clap::{command, Command};
+use jiff::Zoned;
 use std::process::exit;
 
 use crate::helpers::{filter, get_number, print_task, TimeFrame};
@@ -26,6 +27,8 @@ fn main() {
             exit(1)
         }
     };
+
+    let now = Zoned::now();
 
     let matches = command!()
         .subcommand_required(true)
@@ -67,56 +70,56 @@ fn main() {
             Some(("today", _)) => {
                 let tagged_tasks = filter(&projects, TimeFrame::Today);
                 for (num, task) in tagged_tasks.iter().enumerate() {
-                    print_task(num, task);
+                    print_task(num, task, &now);
                 }
             }
             Some(("tomorrow", _)) => {
                 let tagged_tasks = filter(&projects, TimeFrame::Tomorrow);
                 for (num, task) in tagged_tasks.iter().enumerate() {
-                    print_task(num, task);
+                    print_task(num, task, &now);
                 }
             }
             Some(("week", _)) => {
                 let tagged_tasks = filter(&projects, TimeFrame::Week);
                 for (num, task) in tagged_tasks.iter().enumerate() {
-                    print_task(num, task);
+                    print_task(num, task, &now);
                 }
             }
             Some(("all", _)) => {
                 let tagged_tasks = filter(&projects, TimeFrame::All);
                 for (num, task) in tagged_tasks.iter().enumerate() {
-                    print_task(num, task);
+                    print_task(num, task, &now);
                 }
             }
             _ => unreachable!(),
         },
         Some(("complete", show_matches)) => match show_matches.subcommand() {
             Some(("today", _)) => {
-                show_and_finish_task(&projects, TimeFrame::Today, TaskAction::Complete, &tick);
+                show_and_finish_task(&projects, TimeFrame::Today, TaskAction::Complete, &tick, &now);
             }
             Some(("tomorrow", _)) => {
-                show_and_finish_task(&projects, TimeFrame::Tomorrow, TaskAction::Complete, &tick);
+                show_and_finish_task(&projects, TimeFrame::Tomorrow, TaskAction::Complete, &tick, &now);
             }
             Some(("week", _)) => {
-                show_and_finish_task(&projects, TimeFrame::Week, TaskAction::Complete, &tick);
+                show_and_finish_task(&projects, TimeFrame::Week, TaskAction::Complete, &tick, &now);
             }
             Some(("all", _)) => {
-                show_and_finish_task(&projects, TimeFrame::All, TaskAction::Complete, &tick);
+                show_and_finish_task(&projects, TimeFrame::All, TaskAction::Complete, &tick, &now);
             }
             _ => unreachable!(),
         },
         Some(("delete", show_matches)) => match show_matches.subcommand() {
             Some(("today", _)) => {
-                show_and_finish_task(&projects, TimeFrame::Today, TaskAction::Delete, &tick);
+                show_and_finish_task(&projects, TimeFrame::Today, TaskAction::Delete, &tick, &now);
             }
             Some(("tomorrow", _)) => {
-                show_and_finish_task(&projects, TimeFrame::Tomorrow, TaskAction::Delete, &tick);
+                show_and_finish_task(&projects, TimeFrame::Tomorrow, TaskAction::Delete, &tick, &now);
             }
             Some(("week", _)) => {
-                show_and_finish_task(&projects, TimeFrame::Week, TaskAction::Delete, &tick);
+                show_and_finish_task(&projects, TimeFrame::Week, TaskAction::Delete, &tick, &now);
             }
             Some(("all", _)) => {
-                show_and_finish_task(&projects, TimeFrame::All, TaskAction::Delete, &tick);
+                show_and_finish_task(&projects, TimeFrame::All, TaskAction::Delete, &tick, &now);
             }
             _ => unreachable!(),
         },
@@ -134,11 +137,12 @@ fn show_and_finish_task(
     timeframe: TimeFrame,
     task_action: TaskAction,
     client: &TickTickClient,
+    now: &Zoned,
 ) {
     let tagged_tasks = filter(projects, timeframe);
     let num_tasks = tagged_tasks.len();
     for (num, task) in tagged_tasks.iter().enumerate() {
-        print_task(num, task);
+        print_task(num, task, now);
     }
 
     // Nothing to do if no tasks were printed
