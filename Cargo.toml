@@ -19,6 +19,7 @@ platform-dirs = "0.3.0"
 jiff = {version = "0.1.18", features = ["serde"] }
 kolorz = "0.10.0"
 clap = {version = "4.5.23", features = ["cargo"] }
+rand = "0.8.5"
 
 # The profile that 'dist' will build with
 [profile.dist]

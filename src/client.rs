@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Context, Result};
 use jiff::{Timestamp, ToSpan};
+use rand::Rng;
 use reqwest::blocking::Client;
 use reqwest::header::{self, HeaderMap, HeaderValue};
 use serde::{Deserialize, Serialize};
@@ -39,6 +40,12 @@ pub struct TickTickClient {
     http_client: Client,
 }
 
+#[derive(Debug, Clone)]
+pub struct AuthRedirect {
+    code: String,
+    state: String,
+}
+
 /*
 Everything related to auth and managing the token
 */
@@ -60,15 +67,24 @@ impl TickTickClient {
     }
 
     fn get_access_token_from_user() -> Result<AccessToken> {
+        /*
+        I really don't think we need to bother too much with the state token.
+        The server is quite literally meant for a oneshot and any user
+        is going to be rolling their own credentials, this is not going to be a
+        long running service
+        */
+        let mut rng = rand::thread_rng();
+        let state: String = (0..32).map(|_| format!("{:02x}", rng.gen::<u8>())).collect();
         let client_id = env::var("TICKTICK_CLIENT_ID").context("Did not find ticktick client id")?;
         let client_secret = env::var("TICKTICK_CLIENT_SECRET").context("Did not find ticktick client secret")?;
         let redirect_url = env::var("TICKTICK_REDIRECT_URL").context("Did not find tictick redirect url")?;
-        let auth_url = format!("{BASE_AUTH_URL}/authorize?scope={SCOPE}&client_id={client_id}&state=state&redirect_uri={redirect_url}&response_type=code");
+        let auth_url = format!("{BASE_AUTH_URL}/authorize?scope={SCOPE}&client_id={client_id}&state={state}&redirect_uri={redirect_url}&response_type=code");
 
         open::that(&auth_url)?;
 
-        let auth_code = Self::listen_for_redirect(8000)?;
-        let access_token = Self::exchange_code_for_token(&client_id, &client_secret, &auth_code, &redirect_url)?;
+        let auth_redirect = Self::listen_for_redirect(8000)?;
+        let access_token =
+            Self::exchange_code_for_token(&client_id, &client_secret, &auth_redirect, &state, &redirect_url)?;
 
         let _ = Self::save_access_token(&access_token);
 
@@ -111,7 +127,7 @@ impl TickTickClient {
         Ok(token)
     }
 
-    fn listen_for_redirect(port: u16) -> Result<String> {
+    fn listen_for_redirect(port: u16) -> Result<AuthRedirect> {
         let (tx, rx) = mpsc::channel();
 
         let server = Server::http(format!("127.0.0.1:{}", port))
@@ -148,24 +164,35 @@ impl TickTickClient {
         });
 
         let params = rx.recv().context("Failed to receive data from the redirect")?;
-        Ok(params
+        let code = params
             .get("code")
             .ok_or(anyhow!("No code in the redirect"))?
-            .to_string())
+            .to_string();
+        let state = params
+            .get("state")
+            .ok_or(anyhow!("No state in the redirect"))?
+            .to_string();
+
+        Ok(AuthRedirect { code, state })
     }
 
     fn exchange_code_for_token(
         client_id: &str,
         client_secret: &str,
-        code: &str,
+        auth_redirect: &AuthRedirect,
+        state: &str,
         redirect_uri: &str,
     ) -> Result<AccessToken> {
+        if auth_redirect.state != state {
+            return Err(anyhow!("State token does not match"));
+        }
+
         let http_client = Client::new();
         let mut form = HashMap::new();
 
         form.insert("client_id", client_id);
         form.insert("client_secret", client_secret);
-        form.insert("code", code);
+        form.insert("code", &auth_redirect.code);
         form.insert("grant_type", "authorization_code");
         form.insert("redirect_uri", redirect_uri);
 
