@@ -227,48 +227,58 @@ impl TickTickClient {
 // API requests
 impl TickTickClient {
     pub fn get_projects(&self) -> Result<Vec<Project>> {
-        let result: Vec<Project> = self
-            .http_client
+        self.http_client
             .get(format!("{BASE_API_URL}/open/v1/project"))
-            .send()?
-            .json()?;
-        Ok(result)
+            .send()
+            .map_err(|e| anyhow!("Failed to send request: {}", e))?
+            .error_for_status()
+            .map_err(|e| anyhow!("API error: {}", e))?
+            .json()
+            .map_err(|e| anyhow!("Failed to parse response: {}", e))
     }
 
     pub fn get_projects_with_data(&self) -> Result<Vec<ProjectData>> {
         let projects = self.get_projects()?;
-        let mut project_data: Vec<ProjectData> = vec![];
 
-        for project in projects.iter() {
-            let result: ProjectData = self
-                .http_client
-                .get(format!("{BASE_API_URL}/open/v1/project/{}/data", project.id))
-                .send()?
-                .json()?;
-            project_data.push(result);
-        }
-        Ok(project_data)
+        projects
+            .iter()
+            .map(|project| {
+                self.http_client
+                    .get(format!("{BASE_API_URL}/open/v1/project/{}/data", project.id))
+                    .send()
+                    .map_err(|e| anyhow!("Failed to fetch project data request for {}: {}", project.id, e))?
+                    .error_for_status()
+                    .map_err(|e| anyhow!("API error fetching project data for {}: {}", project.id, e))?
+                    .json()
+                    .map_err(|e| anyhow!("Failed to parse project data for {}: {}", project.id, e))
+            })
+            .collect()
     }
-
     pub fn complete_task(&self, task: &Task) -> Result<()> {
-        let _ = self
-            .http_client
+        self.http_client
             .post(format!(
                 "{BASE_API_URL}/open/v1/project/{}/task/{}/complete",
                 task.project_id, task.id
             ))
-            .send()?;
+            .send()
+            .map_err(|e| anyhow!("Failed to send complete task request: {}", e))?
+            .error_for_status()
+            .map_err(|e| anyhow!("Failed to complete task: {}", e))?;
+
         Ok(())
     }
 
     pub fn delete_task(&self, task: &Task) -> Result<()> {
-        let _ = self
-            .http_client
+        self.http_client
             .delete(format!(
                 "{BASE_API_URL}/open/v1/project/{}/task/{}",
                 task.project_id, task.id
             ))
-            .send()?;
+            .send()
+            .map_err(|e| anyhow!("Failed to send delete task request: {}", e))?
+            .error_for_status()
+            .map_err(|e| anyhow!("Failed to delete task: {}", e))?;
+
         Ok(())
     }
 }
