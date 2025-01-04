@@ -9,7 +9,10 @@ where
     Option::<String>::deserialize(deserializer)?
         .map(|strtime| {
             let dt = DateTime::strptime("%Y-%m-%dT%H:%M:%S%.3f%z", strtime).map_err(serde::de::Error::custom)?;
-            dt.to_zoned(TimeZone::system()).map_err(serde::de::Error::custom)
+            let zoned = dt.to_zoned(TimeZone::UTC).map_err(serde::de::Error::custom)?;
+            zoned
+                .intz(TimeZone::system().iana_name().expect("Couldn't get system tz name"))
+                .map_err(serde::de::Error::custom)
         })
         .transpose()
 }
@@ -18,7 +21,7 @@ where
 pub struct Project {
     pub id: String,
     pub name: String,
-    pub color: String,
+    pub color: Option<String>,
     #[serde(rename = "sortOrder")]
     pub sort_order: i64,
     pub closed: Option<bool>,
