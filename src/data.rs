@@ -17,6 +17,12 @@ where
         .transpose()
 }
 
+/*
+There are a bunch of fields wrapped in Option because I honestly don't know
+what fields are really optional. The API docs don't say anything, and I hate
+it here
+*/
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Project {
     pub id: String,
@@ -60,8 +66,8 @@ pub struct Task {
     pub is_all_day: bool,
     #[serde(rename = "completedTime", deserialize_with = "deserialize_dt", default)]
     pub completed_time: Option<Zoned>,
-    pub content: String,
-    pub desc: String,
+    pub content: Option<String>,
+    pub desc: Option<String>,
     #[serde(rename = "dueDate", deserialize_with = "deserialize_dt", default)]
     pub due_date: Option<Zoned>,
     pub items: Option<Vec<ChecklistItem>>,
