@@ -73,15 +73,22 @@ impl TickTickClient {
         is going to be rolling their own credentials, this is not going to be a
         long running service
         */
+
         let state = generate_state_token();
+        let redirect_url = env::var("TICKTICK_REDIRECT_URL").context("Did not find tictick redirect url")?;
+        let address: &str = redirect_url
+            .split("//")
+            .nth(1)
+            .context("Bad redirect_url format")?
+            .trim_end_matches("/");
         let client_id = env::var("TICKTICK_CLIENT_ID").context("Did not find ticktick client id")?;
         let client_secret = env::var("TICKTICK_CLIENT_SECRET").context("Did not find ticktick client secret")?;
-        let redirect_url = env::var("TICKTICK_REDIRECT_URL").context("Did not find tictick redirect url")?;
+
         let auth_url = format!("{BASE_AUTH_URL}/authorize?scope={SCOPE}&client_id={client_id}&state={state}&redirect_uri={redirect_url}&response_type=code");
 
         open::that(&auth_url)?;
 
-        let auth_redirect = Self::listen_for_redirect(8000)?;
+        let auth_redirect = Self::listen_for_redirect(&address)?;
         let access_token =
             Self::exchange_code_for_token(&client_id, &client_secret, &auth_redirect, &state, &redirect_url)?;
 
@@ -126,10 +133,10 @@ impl TickTickClient {
         Ok(token)
     }
 
-    fn listen_for_redirect(port: u16) -> Result<AuthRedirect> {
+    fn listen_for_redirect(address: &str) -> Result<AuthRedirect> {
         let (tx, rx) = mpsc::channel();
 
-        let server = Server::http(format!("127.0.0.1:{}", port))
+        let server = Server::http(address)
             .map_err(|e| anyhow::anyhow!("{}", e))
             .context("Failed to start server")?;
 
