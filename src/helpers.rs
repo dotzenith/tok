@@ -68,12 +68,11 @@ pub fn print_task(num: usize, tagged_task: &TaggedTask, now: &Zoned) {
     }
 }
 
-pub fn filter<'a>(projects: &'a [ProjectData], frame: TimeFrame, project: Option<&str>) -> Vec<TaggedTask<'a>> {
+pub fn filter(projects: &[ProjectData], frame: TimeFrame) -> Vec<TaggedTask<'_>> {
     let today = Zoned::now();
 
     projects
         .iter()
-        .filter(|proj| project.map_or(true, |p| proj.project.name == p))
         .flat_map(|proj| {
             let value = today.clone();
             proj.tasks.iter().filter_map({

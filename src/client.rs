@@ -88,7 +88,7 @@ impl TickTickClient {
 
         open::that(&auth_url)?;
 
-        let auth_redirect = Self::listen_for_redirect(&address)?;
+        let auth_redirect = Self::listen_for_redirect(address)?;
         let access_token =
             Self::exchange_code_for_token(&client_id, &client_secret, &auth_redirect, &state, &redirect_url)?;
 
@@ -242,6 +242,28 @@ impl TickTickClient {
             .map_err(|e| anyhow!("API error: {}", e))?
             .json()
             .map_err(|e| anyhow!("Failed to parse response: {}", e))
+    }
+
+    pub fn get_single_project_with_data(&self, project_name: &str) -> Result<Vec<ProjectData>> {
+        /*
+        Only returning Vec to keep it consistent with the other endpoint
+        Less mental overhead for a little bit of memory/time overhead
+        */
+        let projects = self.get_projects()?;
+
+        projects
+            .iter().filter(|proj| proj.name == project_name)
+            .map(|project| {
+                self.http_client
+                    .get(format!("{BASE_API_URL}/open/v1/project/{}/data", project.id))
+                    .send()
+                    .map_err(|e| anyhow!("Failed to fetch project data request for {}: {}", project.id, e))?
+                    .error_for_status()
+                    .map_err(|e| anyhow!("API error fetching project data for {}: {}", project.id, e))?
+                    .json()
+                    .map_err(|e| anyhow!("Failed to parse project data for {}: {}", project.id, e))
+            })
+            .collect()
     }
 
     pub fn get_projects_with_data(&self) -> Result<Vec<ProjectData>> {

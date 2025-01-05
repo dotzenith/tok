@@ -9,19 +9,10 @@ use std::process::exit;
 use crate::helpers::{filter, get_number, print_task, TimeFrame};
 
 use self::client::TickTickClient;
-use self::data::ProjectData;
 
 fn main() {
     let tick = match client::TickTickClient::new() {
         Ok(client) => client,
-        Err(err) => {
-            eprintln!("{}", err);
-            exit(1)
-        }
-    };
-
-    let projects = match tick.get_projects_with_data() {
-        Ok(proj) => proj,
         Err(err) => {
             eprintln!("{}", err);
             exit(1)
@@ -90,39 +81,26 @@ fn main() {
         Some(("show", show_matches)) => match show_matches.subcommand() {
             Some(("today", _)) => {
                 let project = show_matches.get_one::<String>("project");
-                let tagged_tasks = filter(&projects, TimeFrame::Today, project.map(|x| x.as_str()));
-                for (num, task) in tagged_tasks.iter().enumerate() {
-                    print_task(num, task, &now);
-                }
+                show_tasks(project.map(|x| x.as_str()), TimeFrame::Today, &tick, &now);
             }
             Some(("tomorrow", _)) => {
                 let project = show_matches.get_one::<String>("project");
-                let tagged_tasks = filter(&projects, TimeFrame::Tomorrow, project.map(|x| x.as_str()));
-                for (num, task) in tagged_tasks.iter().enumerate() {
-                    print_task(num, task, &now);
-                }
+                show_tasks(project.map(|x| x.as_str()), TimeFrame::Tomorrow, &tick, &now);
             }
             Some(("week", _)) => {
                 let project = show_matches.get_one::<String>("project");
-                let tagged_tasks = filter(&projects, TimeFrame::Week, project.map(|x| x.as_str()));
-                for (num, task) in tagged_tasks.iter().enumerate() {
-                    print_task(num, task, &now);
-                }
+                show_tasks(project.map(|x| x.as_str()), TimeFrame::Week, &tick, &now);
             }
             Some(("all", _)) => {
                 let project = show_matches.get_one::<String>("project");
-                let tagged_tasks = filter(&projects, TimeFrame::All, project.map(|x| x.as_str()));
-                for (num, task) in tagged_tasks.iter().enumerate() {
-                    print_task(num, task, &now);
-                }
+                show_tasks(project.map(|x| x.as_str()), TimeFrame::All, &tick, &now);
             }
             _ => unreachable!(),
         },
         Some(("complete", show_matches)) => match show_matches.subcommand() {
             Some(("today", _)) => {
                 let project = show_matches.get_one::<String>("project");
-                show_and_finish_task(
-                    &projects,
+                show_and_finish_tasks(
                     project.map(|x| x.as_str()),
                     TimeFrame::Today,
                     TaskAction::Complete,
@@ -132,8 +110,7 @@ fn main() {
             }
             Some(("tomorrow", _)) => {
                 let project = show_matches.get_one::<String>("project");
-                show_and_finish_task(
-                    &projects,
+                show_and_finish_tasks(
                     project.map(|x| x.as_str()),
                     TimeFrame::Tomorrow,
                     TaskAction::Complete,
@@ -143,8 +120,7 @@ fn main() {
             }
             Some(("week", _)) => {
                 let project = show_matches.get_one::<String>("project");
-                show_and_finish_task(
-                    &projects,
+                show_and_finish_tasks(
                     project.map(|x| x.as_str()),
                     TimeFrame::Week,
                     TaskAction::Complete,
@@ -154,8 +130,7 @@ fn main() {
             }
             Some(("all", _)) => {
                 let project = show_matches.get_one::<String>("project");
-                show_and_finish_task(
-                    &projects,
+                show_and_finish_tasks(
                     project.map(|x| x.as_str()),
                     TimeFrame::All,
                     TaskAction::Complete,
@@ -168,8 +143,7 @@ fn main() {
         Some(("delete", show_matches)) => match show_matches.subcommand() {
             Some(("today", _)) => {
                 let project = show_matches.get_one::<String>("project");
-                show_and_finish_task(
-                    &projects,
+                show_and_finish_tasks(
                     project.map(|x| x.as_str()),
                     TimeFrame::Today,
                     TaskAction::Delete,
@@ -179,8 +153,7 @@ fn main() {
             }
             Some(("tomorrow", _)) => {
                 let project = show_matches.get_one::<String>("project");
-                show_and_finish_task(
-                    &projects,
+                show_and_finish_tasks(
                     project.map(|x| x.as_str()),
                     TimeFrame::Tomorrow,
                     TaskAction::Delete,
@@ -190,8 +163,7 @@ fn main() {
             }
             Some(("week", _)) => {
                 let project = show_matches.get_one::<String>("project");
-                show_and_finish_task(
-                    &projects,
+                show_and_finish_tasks(
                     project.map(|x| x.as_str()),
                     TimeFrame::Week,
                     TaskAction::Delete,
@@ -201,8 +173,7 @@ fn main() {
             }
             Some(("all", _)) => {
                 let project = show_matches.get_one::<String>("project");
-                show_and_finish_task(
-                    &projects,
+                show_and_finish_tasks(
                     project.map(|x| x.as_str()),
                     TimeFrame::All,
                     TaskAction::Delete,
@@ -222,15 +193,45 @@ enum TaskAction {
     Delete,
 }
 
-fn show_and_finish_task(
-    projects: &[ProjectData],
-    project_filter: Option<&str>,
-    timeframe: TimeFrame,
-    task_action: TaskAction,
+fn show_tasks(project: Option<&str>, timeframe: TimeFrame, client: &TickTickClient, now: &Zoned) {
+    let result = match project {
+        Some(proj) => client.get_single_project_with_data(proj),
+        None => client.get_projects_with_data(),
+    };
+
+    let projects = match result {
+        Ok(proj) => proj,
+        Err(err) => {
+            eprintln!("{}", err);
+            exit(1)
+        }
+    };
+    let tagged_tasks = filter(&projects, timeframe);
+    for (num, task) in tagged_tasks.iter().enumerate() {
+        print_task(num, task, now);
+    }
+}
+
+fn show_and_finish_tasks(
+    project: Option<&str>,
+    frame: TimeFrame,
+    action: TaskAction,
     client: &TickTickClient,
     now: &Zoned,
 ) {
-    let tagged_tasks = filter(projects, timeframe, project_filter);
+    let result = match project {
+        Some(proj) => client.get_single_project_with_data(proj),
+        None => client.get_projects_with_data(),
+    };
+
+    let projects = match result {
+        Ok(proj) => proj,
+        Err(err) => {
+            eprintln!("{}", err);
+            exit(1)
+        }
+    };
+    let tagged_tasks = filter(&projects, frame);
     let num_tasks = tagged_tasks.len();
     for (num, task) in tagged_tasks.iter().enumerate() {
         print_task(num, task, now);
@@ -248,7 +249,7 @@ fn show_and_finish_task(
         }
     };
 
-    match task_action {
+    match action {
         TaskAction::Complete => match client.complete_task(tagged_tasks[remove].task) {
             Ok(_) => println!("Task completed successfully"),
             Err(err) => eprintln!("Unable to complete task: {}", err),
