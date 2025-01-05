@@ -49,7 +49,7 @@ pub fn print_task(num: usize, tagged_task: &TaggedTask, now: &Zoned) {
     match tagged_task.color {
         Some(col) => {
             println!(
-                "({:02}) {:<16} {} [{}]",
+                "({:03}) {:<16} {} [{}]",
                 num + 1,
                 time.strftime("[%m/%d %I:%M %p]").to_string(),
                 tagged_task.task.title,
@@ -58,7 +58,7 @@ pub fn print_task(num: usize, tagged_task: &TaggedTask, now: &Zoned) {
         }
         None => {
             println!(
-                "({:02}) {:<16} {} [{}]",
+                "({:03}) {:<16} {} [{}]",
                 num + 1,
                 time.strftime("[%m/%d %I:%M %p]").to_string(),
                 tagged_task.task.title,
