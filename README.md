@@ -127,7 +127,7 @@ $ tok show today --project Cooking      # Shows tasks due today in the "Cooking"
 
 [TickTick Developer Docs](https://developer.ticktick.com/docs) can be found here.
 
-I started working on this with a lot of enthusiasm because I thought that at long last, I had found
+I started working on this with a lot of enthusiasm because I thought at long last, I had found
 a solution to all of my woes. I've long wanted a commandline client for a To-Do app that works on
 all of my devices. TickTick has an app for all of my devices and I was **elated** to find out there
 was a documented API for it.
@@ -149,7 +149,7 @@ access token. Just try a few times. It'll work.
 tasks. Once to fetch all the projects, with one request **each** for every project. This also means you might get
 limited unless the `--project` flag is passed in, which naturally only has to fetch one project's data.
 
-Enough complaining. This was built for my personal usage and I will still with it until my subscription expires.
+Enough complaining. This was built for my personal usage and I will stick with it until my subscription expires.
 Will look for a different To-Do app after that.
 
 I hope the irony of struggling to find a developer focused To-Do app when every developer builds a To-Do app as a first
