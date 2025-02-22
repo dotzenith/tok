@@ -119,7 +119,7 @@ pub fn get_number(max: usize) -> Result<usize> {
 pub fn generate_state_token() -> String {
     let mut rng = rand::thread_rng();
     (0..32).fold(String::new(), |mut output, _| {
-        let _ = write!(output, "{:02x}", rng.gen::<u8>());
+        let _ = write!(output, "{:02x}", rng.r#gen::<u8>());
         output
     })
 }
